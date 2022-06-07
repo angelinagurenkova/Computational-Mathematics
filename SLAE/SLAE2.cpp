@@ -142,13 +142,13 @@ int main()
 		Ax.push_back(0);
 		cout << "b = " << b[i] << endl;
 	}
-	for (int i = 0; i < n; i++) {//y = U*x
+	for (int i = 0; i < n; i++) {//y = P*b
 		for (int j = 0; j < n; j++) {
 			y[i] += P[i][j] * b[j];
 		}
 	}
 
-	for (int i = 1; i <= n; i++) { //L*y=0
+	for (int i = 1; i <= n; i++) { 
 		for (int j = 1; j <= (i - 1); j++) {
 			y[i - 1] -= L[i - 1][j - 1] * y[j - 1];
 		}
@@ -182,7 +182,6 @@ int main()
 			x.push_back(0);
 			y.push_back(0);
 			Ax.push_back(0);
-			//cout << "bi = " << b[i] << "it = " << it << endl;
 		}
 
 		for (int i = 0; i < n; i++) {
@@ -203,7 +202,6 @@ int main()
 				x[i - 1] -= U[i - 1][j - 1] * x[j - 1];
 			}
 			x[i - 1] /= U[i - 1][i - 1];
-			//cout << "x = " << x[i - 1] << endl;
 		}
 		for (int a = 0; a < n; a++) {
 			obratA[a][it] = x[a];
