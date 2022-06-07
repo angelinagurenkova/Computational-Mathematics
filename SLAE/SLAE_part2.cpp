@@ -264,7 +264,7 @@ int main()
 
 	}
 	else {
-		cout << "Matrix is NE sovmestnaya" << endl;
+		cout << "Matrix is NOT sovmestnaya" << endl;
 	}
 	system("pause");
 	return 0;
