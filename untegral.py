@@ -116,48 +116,6 @@ def moment_4(a: float,b: float):
 def moment_5(a: float,b: float):
     return (-7.0/12015600000) * (math.pow((2.9-b), 3.0/7) * (316200000.0*b*b*b*b*b + 1035300000.0*b*b*b*b + 3502765000.0*b*b*b + 12548140500.0*b*b + 50945450430.0*b + 344730881243.0) - math.pow((2.9-a), 3.0/7) * (316200000.0*a*a*a*a*a + 1035300000.0*a*a*a*a + 3502765000.0*a*a*a + 12548140500.0*a*a + 50945450430.0*a + 344730881243.0))
 
-def cordano(coefs):
-    a = coefs[2]
-    b = coefs[1]
-    c = coefs[0]
-
-    p = b - (a ** 2) / 3
-    q = c + (2 * (a ** 3)) / 27 - (a * b) / 3
-    D = (q ** 2) / 4.0 + (p ** 3) / 27.0
-
-    if D < 0:
-        if q < 0:
-            fi = math.atan(2.0 * math.sqrt(-D) / (-q))
-        elif q > 0:
-            fi = math.atan(2.0 * math.sqrt(-D) / (-q) + math.pi)
-        else:
-            fi = math.pi / 2.0
-
-        x1 = 2.0 * math.sqrt(-p / 3.0) * math.cos(fi / 3.0) - a / 3.0
-        x2 = 2.0 * math.sqrt(-p / 3.0) * math.cos(fi / 3.0 + 2.0 * math.pi / 3.0) - a / 3.0
-        x3 = 2.0 * math.sqrt(-p / 3.0) * math.cos(fi / 3.0 + 4.0 * math.pi / 3.0) - a / 3.0
-        return np.array([x1, x2, x3], float)
-
-    elif D > 0:
-        x1 = 0
-        if (-q) / 2.0 + math.pow(D, 1.0 / 2.0) < 0:
-            x1 += -math.pow((q) / 2.0 - math.pow(D, 1.0 / 2.0), 1.0 / 3.0)
-        else:
-            x1 += math.pow((-q) / 2.0 + math.pow(D, 1.0 / 2.0), 1.0 / 3.0)
-
-        if (-q) / 2.0 - math.pow(D, 1.0 / 2.0) < 0:
-            x1 += -math.pow(q / 2.0 + math.pow(D, 1.0 / 2.0), 1.0 / 3.0) - a / 3.0
-        else:
-            x1 += math.pow(-q / 2.0 - math.pow(D, 1.0 / 2.0), 1.0 / 3.0) - a / 3.0
-
-        return np.array([x1], float)
-
-    else:
-        x1 = 2 * math.pow(-q / 2.0, 1.0 / 3.0) - a / 3.0
-        x2 = -math.pow(-q / 2.0, 1.0 / 3.0) - a / 3.0
-
-        return np.array([x1, x2], float)
-
 
 def newton_cotes(a, b, parts):
     step = (b - a) / parts
@@ -186,49 +144,6 @@ def newton_cotes(a, b, parts):
         a += step
     return integral
 
-
-def gauss(a, b, step):
-    lim1 = a
-    integral = 0.0
-    for i in range(1, math.ceil((lim_b - b) / step) + 2, 1):
-        moment0 = moment_0(a, b)
-        moment1 = moment_1(a, b)
-        moment2 = moment_2(a, b)
-        moment3 = moment_3(a, b)
-        moment4 = moment_4(a, b)
-        moment5 = moment_5(a, b)
-        moments = np.array([moment0, moment1, moment2, moment3, moment4, moment5], float)
-
-        node_0 = a
-        node_1 = a + (b - a) / 2
-        node_2 = b
-        nodes = np.array([node_0, node_1, node_2], float)
-
-        matrix = np.array([[moment0, moment1, moment2],
-                           [moment1, moment2, moment3],
-                           [moment2, moment3, moment4]], dtype=float)
-
-        y = np.array([-moment3, -moment4, -moment5], dtype=float)
-
-        solution = solve_slae(matrix, y)
-
-        p = cordano(solution)
-
-        p.sort()
-
-        A = np.array([[1, 1, 1]], float)
-        A = np.vstack((A, p))
-        A = np.vstack((A, np.multiply(p, p)))
-
-        solution = solve_slae(A, moments[:3])
-
-        for j in range(len(solution)):
-            integral += solution[j] * f(p[j])
-
-        a = lim1 + (i) * step
-        b = lim1 + (i + 1) * step
-
-    return integral
 
 np.set_printoptions(formatter={'float': '{: 0.4f}'.format})
 print("--------Ньютон-Котс:--------\n")
