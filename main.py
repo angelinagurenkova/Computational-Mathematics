@@ -1,210 +1,259 @@
 import math
+import operator as op
 import numpy as np
-import time
-from LU import decomposition, solve_slae
-
-Geps = 1e-3
-solutionExists = 1
 
 
-def F(x, mulBy=1):
-    x1, x2, x3, x4, x5, x6, x7, x8, x9, x10 = x
-    Fx = np.array([
-        math.cos(x2 * x1) - math.exp(-3 * x3) + x4 * x5 ** 2 - x6 - math.sinh(2 * x8) * x9 + 2 * x10 + 2.000433974165385440,
-        math.sin(x2 * x1) + x3 * x9 * x7 - math.exp(-x10 + x6) + 3 * x5 ** 2 - x6 * (x8 + 1) + 10.886272036407019994,
-        x1 - x2 + x3 - x4 + x5 - x6 + x7 - x8 + x9 - x10 - 3.1361904761904761904,
-        2 * math.cos(-x9 + x4) + x5 / (x3 + x1) - math.sin(x2 ** 2) + math.cos(x7 * x10) ** 2 - x8 - 0.1707472705022304757,
-        math.sin(x5) + 2 * x8 * (x3 + x1) - math.exp(-x7 * (-x10 + x6)) + 2 * math.cos(x2) - 1.0 / (-x9 + x4) - 0.3685896273101277862,
-        math.exp(x1 - x4 - x9) + x5 ** 2 / x8 + math.cos(3 * x10 * x2) / 2 - x6 * x3 + 2.0491086016771875115,
-        x2 ** 3 * x7 - math.sin(x10 / x5 + x8) + (x1 - x6) * math.cos(x4) + x3 - 0.7380430076202798014,
-        x5 * (x1 - 2 * x6) ** 2 - 2 * math.sin(-x9 + x3) + 0.15e1 * x4 - math.exp(x2 * x7 + x10) + 3.5668321989693809040,
-        7 / x6 + math.exp(x5 + x4) - 2 * x2 * x8 * x10 * x7 + 3 * x9 - 3 * x1 - 8.4394734508383257499,
-        x10 * x1 + x9 * x2 - x8 * x3 + math.sin(x4 + x5 + x6) * x7 - 0.78238095238095238096])
-
-    return mulBy * Fx
+def swap_rows(matrix, initial, final):
+    if initial != final:
+        tmp = np.copy(matrix)
+        matrix[initial] = tmp[final]
+        matrix[final] = tmp[initial]
+    return matrix
 
 
-def J(x):
-    x1, x2, x3, x4, x5, x6, x7, x8, x9, x10 = x
-    Jx = np.array([[-x2 * math.sin(x2 * x1), -x1 * math.sin(x2 * x1), 3 * math.exp(-3 * x3), x5 ** 2, 2 * x4 * x5,
-                    -1, 0, -2 * math.cosh(2 * x8) * x9, -math.sinh(2 * x8), 2],
-                   [x2 * math.cos(x2 * x1), x1 * math.cos(x2 * x1), x9 * x7, 0, 6 * x5,
-                    -math.exp(-x10 + x6) - x8 - 1, x3 * x9, -x6, x3 * x7, math.exp(-x10 + x6)],
-                   [1, -1, 1, -1, 1, -1, 1, -1, 1, -1],
-                   [-x5 / (x3 + x1) ** 2, -2 * x2 * math.cos(x2 ** 2), -x5 / (x3 + x1) ** 2, -2 * math.sin(-x9 + x4),
-                    1.0 / (x3 + x1), 0, -2 * math.cos(x7 * x10) * x10 * math.sin(x7 * x10), -1,
-                    2 * math.sin(-x9 + x4), -2 * math.cos(x7 * x10) * x7 * math.sin(x7 * x10)],
-                   [2 * x8, -2 * math.sin(x2), 2 * x8, 1.0 / (-x9 + x4) ** 2, math.cos(x5),
-                    x7 * math.exp(-x7 * (-x10 + x6)), -(x10 - x6) * math.exp(-x7 * (-x10 + x6)), 2 * x3 + 2 * x1,
-                    -1.0 / (-x9 + x4) ** 2, -x7 * math.exp(-x7 * (-x10 + x6))],
-                   [math.exp(x1 - x4 - x9), -1.5 * x10 * math.sin(3 * x10 * x2), -x6, -math.exp(x1 - x4 - x9),
-                    2 * x5 / x8, -x3, 0, -x5 ** 2 / x8 ** 2, -math.exp(x1 - x4 - x9), -1.5 * x2 * math.sin(3 * x10 * x2)],
-                   [math.cos(x4), 3 * x2 ** 2 * x7, 1, -(x1 - x6) * math.sin(x4), x10 / x5 ** 2 * math.cos(x10 / x5 + x8),
-                    -math.cos(x4), x2 ** 3, -math.cos(x10 / x5 + x8), 0, -1.0 / x5 * math.cos(x10 / x5 + x8)],
-                   [2 * x5 * (x1 - 2 * x6), -x7 * math.exp(x2 * x7 + x10), -2 * math.cos(-x9 + x3), 1.5,
-                    (x1 - 2 * x6) ** 2, -4 * x5 * (x1 - 2 * x6), -x2 * math.exp(x2 * x7 + x10), 0, 2 * math.cos(-x9 + x3),
-                    -math.exp(x2 * x7 + x10)],
-                   [-3, -2 * x8 * x10 * x7, 0, math.exp(x5 + x4), math.exp(x5 + x4),
-                    -7.0 / x6 ** 2, -2 * x2 * x8 * x10, -2 * x2 * x10 * x7, 3, -2 * x2 * x8 * x7],
-                   [x10, x9, -x8, math.cos(x4 + x5 + x6) * x7, math.cos(x4 + x5 + x6) * x7,
-                    math.cos(x4 + x5 + x6) * x7, math.sin(x4 + x5 + x6), -x3, x2, x1]])
-
-    return Jx
+def swap_cols(matrix, initial, final):
+    if initial != final:
+        tmp = np.copy(matrix)
+        matrix[::, initial] = tmp[::, final]
+        matrix[::, final] = tmp[::, initial]
+    return matrix
 
 
-def norm_vec(x):
-    return math.sqrt(sum([el ** 2 for el in x]))
+# swap cols and rows in same time
+def swap_cols_rows(matrix, init_col, final_col, init_row, final_row):
+    matrix = swap_cols(matrix, init_col, final_col)
+    matrix = swap_rows(matrix, init_row, final_row)
+    return matrix
 
-def norm_inf_mat(A):
-    return max([sum(row) for row in A])
 
-x = [0.5, 0.5, 1.5, -1.0, -0.5, 1.5, 0.5, -0.5, 1.5, -1.5]
-X = np.array(x)
+def pivoting(L, U, P, Q, x):
+    abs_U = abs(U)
+    if abs_U[x:, x:].sum() < pow(10, -14):
+        return 0, L, U, P, Q
 
-def primitive_metod(x, maxIter=2000, eps=Geps):
-    xc = x
-    xp = np.zeros(len(x))
-    operations = 0
-    iterations = 0
-    while (iterations < maxIter):
-        L, U, P, ops = decomposition(J(xc))
-        operations += ops
-        dk, ops = solve_slae(L, U, P, F(xc, mulBy=-1).reshape(10, 1))
-        operations += ops
-        xc, xp = xc + dk, xc
-        iterations += 1
-        if (norm_vec(xc - xp) < eps):
+    i, j = np.where(abs_U[x:, x:] == abs_U[x:, x:].max())
+    i[0] += x
+    j[0] += x
+
+    L = swap_cols_rows(L, j[0], x, i[0], x)
+    U = swap_cols_rows(U, j[0], x, i[0], x)
+    P = swap_rows(P, i[0], x)
+    Q = swap_cols(Q, j[0], x)
+
+    return 1, L, U, P, Q
+
+
+def decomposition(matrix):
+    U = np.copy(matrix)
+    L = np.zeros((len(matrix), len(matrix)))
+    P = np.eye(len(matrix))
+    Q = np.eye(len(matrix))
+
+    for i in range((len(matrix)) - 1):
+        achived, L, U, P, Q = pivoting(L, U, P, Q, i)
+
+        if achived == 0:
             break
 
-    print('Метод Ньютона:')
-    print(f'X:  {[f"{x:.5f}" for x in xc]}')
+        T = np.eye(len(matrix))
+        for k in range(i + 1, len(matrix)):
+            L[k, i] = U[k, i] / U[i, i]
+            T[k, i] = (-1) * L[k, i]
 
-    return (iterations, operations)
+        U = np.dot(T, U)
 
-s_time = time.time()
-its, ops = primitive_metod(X)
-print(f"Итерации: {its}")
-print(f"Операции: {ops}")
-print(f"Время: {(time.time() - s_time):.1e}second\n")
+    L = L + np.eye(len(matrix))
+    return L, U, P, Q
 
-def modified_metod(x, maxIter=2000, eps=Geps):
-    xc = x
-    xp = np.zeros(len(x))
-    operations = 0
-    L, U, P, ops = decomposition(J(xc))
-    operations += ops
-    iterations = 0
-    while (iterations < maxIter):
-        dk, ops = solve_slae(L, U, P, F(xc, mulBy=-1).reshape(10, 1))
-        operations += ops
-        xc, xp = xc + dk, xc
-        iterations += 1
-        if (norm_vec(xc - xp) < eps):
-            break
 
-    print('Модифицированный метод Ньютона:')
-    print(f'X:  {[f"{x:.5f}" for x in xc]}')
-    return (iterations, operations)
+def solve_slae(A, b):
+    L, U, P, Q = decomposition(A)
+    x, y = np.zeros(len(b)), np.zeros(len(b))
+    Pb = np.dot(P, b)
+    # Ly=Pb
+    for i in range(len(Pb)):
+        y[i] = Pb[i]
 
-s_time = time.time()
-its, ops = modified_metod(X)
-print(f"Итерации: {its}")
-print(f"Операции: {ops}")
-print(f"Время: {(time.time() - s_time):.1e}second\n")
+        for j in range(i):
+            y[i] -= y[j] * L[i, j]
+    # Ux=y
+    for i in range(len(Pb) - 1, -1, -1):
+        x[i] = y[i]
 
-def combined_metod(x, k=7, maxIter=2000, eps=Geps):
-    xc = x
-    xp = np.zeros(len(x))
-    operations = 0
-    L, U, P = [[0] * len(x) for _ in range(3)]
-    iterations = 0
-    for _ in range(k):
-        L, U, P, ops = decomposition(J(xc))
-        operations += ops
-        dk, ops = solve_slae(L, U, P, F(xc, mulBy=-1).reshape(10, 1))
-        operations += ops
-        xc, xp = xc + dk, xc
-        iterations += 1
-        if (norm_vec(dk) < eps):
-            print('Combined newton:')
-            print(f'X:  {[f"{x:.5f}" for x in xc]}')
-            return (iterations, operations)
+        for j in range(i + 1, len(Pb)):
+            x[i] -= x[j] * U[i, j]
 
-    while (iterations < maxIter):
-        dk, ops = solve_slae(L, U, P, F(xc, mulBy=-1).reshape(10, 1))
-        operations += ops
-        xc, xp = xc + dk, xc
-        iterations += 1
-        if (norm_vec(xc - xp) < eps):
-            break
+        x[i] /= U[i, i]
 
-    print('Комбинированный метод Ньютона:')
-    print(f'X:  {[f"{x:.5f}" for x in xc]}')
-    return (iterations, operations)
+    return np.dot(Q, x)
 
-s_time = time.time()
-its, ops = combined_metod(X)
-print(f"Итерации: {its}")
-print(f"Операции: {ops}")
-print(f"Время: {(time.time() - s_time):.1e}second\n")
 
-def auto_combined_metod(x, maxIter=2000, eps=Geps):
-    xc = x
-    xp = np.zeros(len(x))
-    operations = 0
-    L, U, P = [[0] * len(x) for _ in range(3)]
-    iterations = 0
-    while (iterations < maxIter):
-        L, U, P, ops = decomposition(J(xc))
-        operations += ops
-        dk, ops = solve_slae(L, U, P, F(xc, mulBy=-1).reshape(10, 1))
-        operations += ops
-        xc, xp = xc + dk, xc
-        iterations += 1
-        if (norm_inf_mat(J(xc) - J(xp)) < eps):
-            break
+lim_a = 1.8
+lim_b = 2.9
+alpha = 0
+beta = 4.0 / 7
+exact = 57.48462064655285571820619434508191055583
 
-    while (iterations < maxIter):
-        dk, ops = solve_slae(L, U, P, F(xc, mulBy=-1).reshape(10, 1))
-        operations += ops
-        xc, xp = xc + dk, xc
-        iterations += 1
-        if (norm_vec(xc - xp) < eps):
-            break
 
-    print('Автоматизированный комбинированный метод Ньютона:')
-    print(f'X:  {[f"{x:.5f}" for x in xc]}')
-    return (iterations, operations)
+def f(x):
+    return 4 * math.cos(2.5*x) * math.exp(x*4.0/7) + 2.5 * math.sin(5.5*x) * math.exp(-3.0*x/5) + 4.3 * x
 
-s_time = time.time()
-its, ops = auto_combined_metod(X)
-print(f"Итерации: {its}")
-print(f"Операции: {ops}")
-print(f"Время: {(time.time() - s_time):.1e}second\n")
+def moment_0(a: float, b: float):
+    return (-7.0/3) * (math.pow((2.9 - b), 3.0/7) - math.pow((2.9 - a), 3.0/7))
 
-def hybrid_metod(x, k=2, maxIter=2000, eps=Geps):
-    xc = x
-    xp = np.zeros(len(x))
-    operations = 0
-    L, U, P = [[0] * len(x) for _ in range(3)]
-    iterations = 0
-    while (iterations < maxIter):
-        if (iterations % k == 0):  # primitive
-            L, U, P, ops = decomposition(J(xc))
-            operations += ops
-        dk, ops = solve_slae(L, U, P, F(xc, mulBy=-1).reshape(10, 1))
-        operations += ops
-        xc, xp = xc + dk, xc
-        iterations += 1
-        if (norm_vec(xc - xp) < eps):
-            break
+def moment_1(a: float,b: float):
+    return (-7.0/300) * (math.pow((2.9 - b), 3.0/7)*(30.0*b + 203.0) - math.pow((2.9 - a), 3.0/7)*(30.0*a + 203.0))
 
-    print('Гибридный метод Ньютона:')
-    print(f'X:  {[f"{x:.5f}" for x in xc]}')
-    return (iterations, operations)
+def moment_2(a: float,b: float):
+    return (-7.0/25500) * (math.pow((2.9 - b), 3.0/7)*(1500.0*b*b + 6090.0*b + 41209.0) - math.pow((2.9 - a), 3.0/7)*(1500.0*a*a + 6090.0*a + 41209.0))
 
-s_time = time.time()
-its, ops = hybrid_metod(X)
-print(f"Итерации: {its}")
-print(f"Операции: {ops}")
-print(f"Время: {(time.time() - s_time):.1e}second\n")
+def moment_3(a: float,b: float):
+    return (-7.0/2040000) * (math.pow((2.9-b), 3.0/7) * (85000.0*b*b*b + 304500.0*b*b + 1236270.0*b + 8365427.0) - math.pow((2.9-a), 3.07) * (85000.0*a*a*a + 304500.0*a*a + 1236270.0*a + 8365427.0))
+
+def moment_4(a: float,b: float):
+    return (-7.0/15810000) * (math.pow((2.9 - b), 3.0/7) * (5100000.0*b*b*b*b + 17255000.0*b*b*b + 61813500.0*b*b + 250962810.0*b + 1698181681) - math.pow((2.9 - a), 3.0/7) * (5100000.0*a*a*a*a + 17255000.0*a*a*a + 61813500.0*a*a + 250962810.0*a + 1698181681))
+
+def moment_5(a: float,b: float):
+    return (-7.0/12015600000) * (math.pow((2.9-b), 3.0/7) * (316200000.0*b*b*b*b*b + 1035300000.0*b*b*b*b + 3502765000.0*b*b*b + 12548140500.0*b*b + 50945450430.0*b + 344730881243.0) - math.pow((2.9-a), 3.0/7) * (316200000.0*a*a*a*a*a + 1035300000.0*a*a*a*a + 3502765000.0*a*a*a + 12548140500.0*a*a + 50945450430.0*a + 344730881243.0))
+
+def cordano(coefs):
+    a = coefs[2]
+    b = coefs[1]
+    c = coefs[0]
+
+    p = b - (a ** 2) / 3
+    q = c + (2 * (a ** 3)) / 27 - (a * b) / 3
+    D = (q ** 2) / 4.0 + (p ** 3) / 27.0
+
+    if D < 0:
+        if q < 0:
+            fi = math.atan(2.0 * math.sqrt(-D) / (-q))
+        elif q > 0:
+            fi = math.atan(2.0 * math.sqrt(-D) / (-q) + math.pi)
+        else:
+            fi = math.pi / 2.0
+
+        x1 = 2.0 * math.sqrt(-p / 3.0) * math.cos(fi / 3.0) - a / 3.0
+        x2 = 2.0 * math.sqrt(-p / 3.0) * math.cos(fi / 3.0 + 2.0 * math.pi / 3.0) - a / 3.0
+        x3 = 2.0 * math.sqrt(-p / 3.0) * math.cos(fi / 3.0 + 4.0 * math.pi / 3.0) - a / 3.0
+        return np.array([x1, x2, x3], float)
+
+    elif D > 0:
+        x1 = 0
+        if (-q) / 2.0 + math.pow(D, 1.0 / 2.0) < 0:
+            x1 += -math.pow((q) / 2.0 - math.pow(D, 1.0 / 2.0), 1.0 / 3.0)
+        else:
+            x1 += math.pow((-q) / 2.0 + math.pow(D, 1.0 / 2.0), 1.0 / 3.0)
+
+        if (-q) / 2.0 - math.pow(D, 1.0 / 2.0) < 0:
+            x1 += -math.pow(q / 2.0 + math.pow(D, 1.0 / 2.0), 1.0 / 3.0) - a / 3.0
+        else:
+            x1 += math.pow(-q / 2.0 - math.pow(D, 1.0 / 2.0), 1.0 / 3.0) - a / 3.0
+
+        return np.array([x1], float)
+
+    else:
+        x1 = 2 * math.pow(-q / 2.0, 1.0 / 3.0) - a / 3.0
+        x2 = -math.pow(-q / 2.0, 1.0 / 3.0) - a / 3.0
+
+        return np.array([x1, x2], float)
+
+
+def newton_cotes(a, b, parts):
+    step = (b - a) / parts
+    integral = 0.0
+    for i in range(parts):
+        b = a + step
+
+        node_0 = a
+        node_1 = a + (b - a) / 2
+        node_2 = b
+        nodes = np.array([node_0, node_1, node_2], float)
+
+        moment0 = moment_0(a, b)
+        moment1 = moment_1(a, b)
+        moment2 = moment_2(a, b)
+        moments = np.array([moment0, moment1, moment2], float)
+
+        matrix = np.array([1, 1, 1], float)
+        matrix = np.vstack((matrix, nodes))
+        matrix = np.vstack((matrix, np.multiply(nodes, nodes)))
+
+        solution = solve_slae(matrix, moments)
+        for j in range(len(solution)):
+            integral += solution[j] * f(nodes[j])
+
+        a += step
+    return integral
+
+
+def gauss(a, b, step):
+    lim1 = a
+    integral = 0.0
+    for i in range(1, math.ceil((lim_b - b) / step) + 2, 1):
+        moment0 = moment_0(a, b)
+        moment1 = moment_1(a, b)
+        moment2 = moment_2(a, b)
+        moment3 = moment_3(a, b)
+        moment4 = moment_4(a, b)
+        moment5 = moment_5(a, b)
+        moments = np.array([moment0, moment1, moment2, moment3, moment4, moment5], float)
+
+        node_0 = a
+        node_1 = a + (b - a) / 2
+        node_2 = b
+        nodes = np.array([node_0, node_1, node_2], float)
+
+        matrix = np.array([[moment0, moment1, moment2],
+                           [moment1, moment2, moment3],
+                           [moment2, moment3, moment4]], dtype=float)
+
+        y = np.array([-moment3, -moment4, -moment5], dtype=float)
+
+        solution = solve_slae(matrix, y)
+
+        p = cordano(solution)
+
+        p.sort()
+
+        A = np.array([[1, 1, 1]], float)
+        A = np.vstack((A, p))
+        A = np.vstack((A, np.multiply(p, p)))
+
+        solution = solve_slae(A, moments[:3])
+
+        for j in range(len(solution)):
+            integral += solution[j] * f(p[j])
+
+        a = lim1 + (i) * step
+        b = lim1 + (i + 1) * step
+
+    return integral
+
+np.set_printoptions(formatter={'float': '{: 0.4f}'.format})
+print("--------Ньютон-Котс:--------\n")
+method_mistake = 0.8
+integral = newton_cotes(lim_a, lim_b, 1)
+print(f"результат: {integral},\nточная погрешность: {abs(exact - integral)},\nметодическая погрешность : {method_mistake}\n")
+
+a = lim_a
+b = lim_b
+e = 10
+parts = 1
+L = 2
+degree = 4
+
+
+print("--------Cоставная ИКФ c оптимальным шагом:--------\n")
+step = (lim_b - lim_a) / 2
+parts_opt = math.ceil((lim_b - lim_a) / (step * L * ((0.00001 / e) ** (1 / degree))))
+
+a = lim_a
+b = lim_b
+
+integral_opt = newton_cotes(a, b, parts_opt)
+e = abs((integral_opt - integral) / (math.pow(L, degree) - 1))
+
+print(f"\nсоставная ИКФ с оптимальным шагом : {integral_opt},\nточная погрешность: {abs(exact - integral_opt)},\nошибка: {e}.\n ")
+
+
